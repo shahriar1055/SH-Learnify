@@ -21,23 +21,18 @@ CREATE TABLE `categories` (
   `slug` VARCHAR(100) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- COURSES
-CREATE TABLE courses (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    category_id INT,
-    title VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
-    instructor VARCHAR(120) NOT NULL,
-    thumbnail VARCHAR(255) DEFAULT 'course.jpg',
-    short_desc TEXT,
-    description LONGTEXT,
-    price DECIMAL(10,2) DEFAULT 0.00,
-    level VARCHAR(50) DEFAULT 'Beginner',
-    duration VARCHAR(50) DEFAULT '0h',
-    total_lessons INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-);
+-- 3. COURSES TABLE
+CREATE TABLE `courses` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `title` VARCHAR(255) NOT NULL,
+  `slug` VARCHAR(255) NOT NULL UNIQUE,
+  `description` TEXT NULL,
+  `thumbnail` VARCHAR(255) NULL,
+  `price` DECIMAL(10,2) DEFAULT 0.00,
+  `category_id` INT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- LESSONS
 CREATE TABLE lessons (
