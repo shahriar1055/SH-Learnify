@@ -1,167 +1,123 @@
 <?php
+require_once '../includes/config.php';
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
-requireAdmin();
 
-$message = "";
+redirect_if_not_admin();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_course'])) {
-    $category_id   = (int)($_POST['category_id'] ?? 0);
-    $title         = trim($_POST['title'] ?? '');
-    $slug          = trim($_POST['slug'] ?? '');
-    $instructor    = trim($_POST['instructor'] ?? '');
-    $thumbnail     = trim($_POST['thumbnail'] ?? 'course.jpg');
-    $short_desc    = trim($_POST['short_desc'] ?? '');
-    $description   = trim($_POST['description'] ?? '');
-    $price         = (float)($_POST['price'] ?? 0);
-    $level         = trim($_POST['level'] ?? 'Beginner');
-    $duration      = trim($_POST['duration'] ?? '0h');
-    $total_lessons = (int)($_POST['total_lessons'] ?? 0);
-
-    if ($title !== '' && $slug !== '' && $instructor !== '') {
-        $stmt = $conn->prepare("INSERT INTO courses(category_id, title, slug, instructor, thumbnail, short_desc, description, price, level, duration, total_lessons)
-                                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("issssssdssi", $category_id, $title, $slug, $instructor, $thumbnail, $short_desc, $description, $price, $level, $duration, $total_lessons);
-
-        if ($stmt->execute()) {
-            $message = "Course added successfully.";
-        } else {
-            $message = "Failed to add course.";
+    $title = trim($_POST['title']);
+    $description = trim($_POST['description']);
+    $price = floatval($_POST['price']);
+    $category_id = intval($_POST['category_id']);
+    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title)));
+    
+    // File upload logic for thumbnail image securely
+    $thumbnail_name = '';
+    if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === 0) {
+        $allowed = ['jpg', 'jpeg', 'png'];
+        $ext = pathinfo($_FILES['thumbnail']['name'], PATHINFO_EXTENSION);
+        if (in_array(strtolower($ext), $allowed)) {
+            $thumbnail_name = time() . '_' . $_FILES['thumbnail']['name'];
+            move_uploaded_file($_FILES['thumbnail']['tmp_temp_name'] ?? $_FILES['thumbnail']['tmp_name'], '../assets/images/' . $thumbnail_name);
         }
-    } else {
-        $message = "Please fill required fields.";
+    }
+
+    if (!empty($title)) {
+        $stmt = $pdo->prepare("INSERT INTO courses (title, slug, description, thumbnail, price, category_id) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$title, $slug, $description, $thumbnail_name, $price, $category_id]);
+        set_flash_message('success', 'Course uploaded successfully!');
     }
 }
 
-if (isset($_GET['delete'])) {
-    $id = (int)$_GET['delete'];
-    $conn->query("DELETE FROM courses WHERE id=$id");
-    header("Location: courses.php");
-    exit();
-}
-
-$categories = $conn->query("SELECT * FROM categories ORDER BY name ASC");
-$courses = $conn->query("SELECT courses.*, categories.name AS category_name
-                         FROM courses
-                         LEFT JOIN categories ON courses.category_id = categories.id
-                         ORDER BY courses.id DESC");
-
-include '../includes/header.php';
+$categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
+$courses = $pdo->query("SELECT c.*, cat.name as cat_name FROM courses c LEFT JOIN categories cat ON c.category_id = cat.id ORDER BY c.id DESC")->fetchAll();
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Courses - SH_LearnifyV2</title>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
+    <style>
+        .admin-container { display: table; width: 100%; height: 100vh; }
+        .sidebar { width: 20%; display: table-cell; background: #1c1d1f; color: #fff; vertical-align: top; padding: 20px; }
+        .sidebar a { display: block; color: #d1d7dc; padding: 12px; text-decoration: none; border-radius: 4px; font-size: 14px; }
+        .sidebar a:hover { background: #3e4145; color: #fff; }
+        .main-content { width: 80%; display: table-cell; vertical-align: top; padding: 40px; background: #f4f6f9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
+        th, td { padding: 12px; border: 1px solid #d1d7dc; text-align: left; font-size:14px; }
+        th { background: #f7f9fa; }
+    </style>
+</head>
+<body>
 
-<section class="page-banner">
-    <div class="container">
-        <h1>Manage Courses</h1>
-        <p>Create and manage courses on SH Learnify.</p>
+<div class="admin-container">
+    <div class="sidebar">
+        <h3 style="color:#a435f0; margin-bottom:30px;">SH_Learnify Panel</h3>
+        <a href="dashboard.php">Dashboard</a>
+        <a href="categories.php">Manage Categories</a>
+        <a href="courses.php" style="background:#3e4145; font-weight:bold;">Manage Courses</a>
+        <a href="lessons.php">Manage Lessons</a>
+        <a href="users.php">Manage Users</a>
+        <a href="<?php echo BASE_URL; ?>logout.php" style="color:#ff5252; margin-top:50px;">Logout</a>
     </div>
-</section>
 
-<section class="section">
-    <div class="container">
-        <?php if($message): ?>
-            <div class="info-card mb-4"><p><?php echo htmlspecialchars($message); ?></p></div>
-        <?php endif; ?>
+    <div class="main-content">
+        <h1 style="font-size:24px; margin-bottom:20px;">Courses Directory</h1>
+        <?php display_flash_message(); ?>
 
-        <div class="form-card mb-4">
-            <h2 class="mb-3">Add New Course</h2>
-            <form method="POST">
-                <div class="form-group">
-                    <label>Category</label>
-                    <select name="category_id" required>
-                        <option value="">Select Category</option>
-                        <?php while($cat = $categories->fetch_assoc()): ?>
-                            <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
-                        <?php endwhile; ?>
-                    </select>
+        <div style="background:#fff; padding:25px; border-radius:6px; margin-bottom:30px;">
+            <h3>Create New Course Module</h3><br>
+            <form method="POST" enctype="multipart/form-data">
+                <div style="margin-bottom:12px;">
+                    <input type="text" name="title" placeholder="Course Title" required style="width:100%; padding:10px; border:1px solid #d1d7dc;">
                 </div>
-
-                <div class="form-group">
-                    <label>Course Title</label>
-                    <input type="text" name="title" required>
+                <div style="margin-bottom:12px;">
+                    <textarea name="description" placeholder="Course Description" rows="4" style="width:100%; padding:10px; border:1px solid #d1d7dc; font-family:inherit;"></textarea>
                 </div>
-
-                <div class="form-group">
-                    <label>Slug</label>
-                    <input type="text" name="slug" required>
+                <div style="overflow:hidden; margin-bottom:12px;">
+                    <div style="width:32%; float:left; margin-right:2%;">
+                        <input type="number" step="0.01" name="price" placeholder="Price (0 for free)" required style="width:100%; padding:10px; border:1px solid #d1d7dc;">
+                    </div>
+                    <div style="width:32%; float:left; margin-right:2%;">
+                        <select name="category_id" required style="width:100%; padding:10px; border:1px solid #d1d7dc; background:#fff;">
+                            <option value="">Select Category</option>
+                            <?php foreach($categories as $cat): ?>
+                                <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div style="width:32%; float:left;">
+                        <input type="file" name="thumbnail" style="width:100%; padding:8px; border:1px solid #d1d7dc; background:#fff;">
+                    </div>
                 </div>
-
-                <div class="form-group">
-                    <label>Instructor</label>
-                    <input type="text" name="instructor" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Thumbnail Filename</label>
-                    <input type="text" name="thumbnail" value="course.jpg">
-                </div>
-
-                <div class="form-group">
-                    <label>Short Description</label>
-                    <textarea name="short_desc" rows="3"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Full Description</label>
-                    <textarea name="description" rows="6"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Price</label>
-                    <input type="number" step="0.01" name="price" value="0">
-                </div>
-
-                <div class="form-group">
-                    <label>Level</label>
-                    <input type="text" name="level" value="Beginner">
-                </div>
-
-                <div class="form-group">
-                    <label>Duration</label>
-                    <input type="text" name="duration" value="10h">
-                </div>
-
-                <div class="form-group">
-                    <label>Total Lessons</label>
-                    <input type="number" name="total_lessons" value="0">
-                </div>
-
-                <button type="submit" name="add_course" class="btn btn-primary">Add Course</button>
+                <button type="submit" name="add_course" style="background:#a435f0; color:#fff; padding:12px 24px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Publish Course</button>
             </form>
         </div>
 
-        <div class="table-box">
-            <h2 class="mb-3">All Courses</h2>
-            <table>
+        <table>
+            <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Title</th>
+                    <th>Thumbnail</th>
+                    <th>Course Title</th>
                     <th>Category</th>
-                    <th>Instructor</th>
                     <th>Price</th>
-                    <th>Lessons</th>
-                    <th>Action</th>
                 </tr>
-
-                <?php if($courses && $courses->num_rows > 0): ?>
-                    <?php while($course = $courses->fetch_assoc()): ?>
-                        <tr>
-                            <td><?php echo $course['id']; ?></td>
-                            <td><?php echo htmlspecialchars($course['title']); ?></td>
-                            <td><?php echo htmlspecialchars($course['category_name'] ?? 'N/A'); ?></td>
-                            <td><?php echo htmlspecialchars($course['instructor']); ?></td>
-                            <td>৳<?php echo number_format($course['price'], 2); ?></td>
-                            <td><?php echo (int)$course['total_lessons']; ?></td>
-                            <td>
-                                <a href="courses.php?delete=<?php echo $course['id']; ?>" onclick="return confirm('Delete this course?')">Delete</a>
-                            </td>
-                        </tr>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <tr><td colspan="7">No courses found.</td></tr>
-                <?php endif; ?>
-            </table>
-        </div>
+            </thead>
+            <tbody>
+                <?php foreach($courses as $c): ?>
+                <tr>
+                    <td><img src="<?php echo !empty($c['thumbnail']) ? BASE_URL.'assets/images/'.$c['thumbnail'] : 'https://via.placeholder.com/60x30'; ?>" style="width:60px; height:35px; object-fit:cover; border-radius:2px;"></td>
+                    <td><strong><?php echo htmlspecialchars($c['title']); ?></strong></td>
+                    <td><?php echo htmlspecialchars($c['cat_name'] ?? 'Uncategorized'); ?></td>
+                    <td><?php echo $c['price'] > 0 ? '$'.number_format($c['price'], 2) : 'Free'; ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
     </div>
-</section>
+</div>
 
-<?php include '../includes/footer.php'; ?>
+</body>
+</html>
