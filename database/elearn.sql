@@ -34,18 +34,19 @@ CREATE TABLE `courses` (
   FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- LESSONS
-CREATE TABLE lessons (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    course_id INT NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    video_url TEXT,
-    lesson_order INT DEFAULT 1,
-    duration VARCHAR(50) DEFAULT '10 min',
-    is_preview TINYINT(1) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
-);
+-- 6. LESSON PROGRESS TABLE
+CREATE TABLE `lesson_progress` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `course_id` INT NOT NULL,
+  `lesson_id` INT NOT NULL,
+  `is_completed` TINYINT(1) DEFAULT 0,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  FOREIGN KEY (`course_id`) REFERENCES `courses`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  FOREIGN KEY (`lesson_id`) REFERENCES `lessons`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  UNIQUE KEY `user_lesson_unique` (`user_id`, `lesson_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ENROLLMENTS
 CREATE TABLE enrollments (
