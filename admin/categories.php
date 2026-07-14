@@ -1,113 +1,89 @@
 <?php
+require_once '../includes/config.php';
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
-requireAdmin();
 
-$message = "";
+redirect_if_not_admin();
 
+// Form processing for insertion
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_category'])) {
-    $name = trim($_POST['name'] ?? '');
-    $slug = trim($_POST['slug'] ?? '');
-    $description = trim($_POST['description'] ?? '');
-    $icon = trim($_POST['icon'] ?? '📘');
+    $name = trim($_POST['name']);
+    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name)));
 
-    if ($name !== '' && $slug !== '') {
-        $stmt = $conn->prepare("INSERT INTO categories(name, slug, description, icon) VALUES(?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $name, $slug, $description, $icon);
-
-        if ($stmt->execute()) {
-            $message = "Category added successfully.";
-        } else {
-            $message = "Failed to add category.";
-        }
-    } else {
-        $message = "Name and slug are required.";
+    if (!empty($name)) {
+        $stmt = $pdo->prepare("INSERT INTO categories (name, slug) VALUES (?, ?)");
+        $stmt->execute([$name, $slug]);
+        set_flash_message('success', 'Category added successfully!');
     }
 }
 
-if (isset($_GET['delete'])) {
-    $id = (int)$_GET['delete'];
-    $conn->query("DELETE FROM categories WHERE id=$id");
-    header("Location: categories.php");
-    exit();
-}
-
-$categories = $conn->query("SELECT * FROM categories ORDER BY id DESC");
-
-include '../includes/header.php';
+$categories = $pdo->query("SELECT * FROM categories ORDER BY id DESC")->fetchAll();
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Categories - SH_LearnifyV2</title>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
+    <link rel="stylesheet" href="dashboard-style-helper.css" style="display:none;"> <style>
+        .admin-container { display: table; width: 100%; height: 100vh; }
+        .sidebar { width: 20%; display: table-cell; background: #1c1d1f; color: #fff; vertical-align: top; padding: 20px; }
+        .sidebar a { display: block; color: #d1d7dc; padding: 12px; text-decoration: none; border-radius: 4px; font-size: 14px; }
+        .sidebar a:hover { background: #3e4145; color: #fff; }
+        .main-content { width: 80%; display: table-cell; vertical-align: top; padding: 40px; background: #f4f6f9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
+        th, td { padding: 12px; border: 1px solid #d1d7dc; text-align: left; }
+        th { background: #f7f9fa; }
+    </style>
+</head>
+<body>
 
-<section class="page-banner">
-    <div class="container">
-        <h1>Manage Categories</h1>
-        <p>Add, view and delete platform categories.</p>
+<div class="admin-container">
+    <div class="sidebar">
+        <h3 style="color:#a435f0; margin-bottom:30px;">SH_Learnify Panel</h3>
+        <a href="dashboard.php">Dashboard</a>
+        <a href="categories.php" style="background:#3e4145; font-weight:bold;">Manage Categories</a>
+        <a href="courses.php">Manage Courses</a>
+        <a href="lessons.php">Manage Lessons</a>
+        <a href="users.php">Manage Users</a>
+        <a href="<?php echo BASE_URL; ?>logout.php" style="color:#ff5252; margin-top:50px;">Logout</a>
     </div>
-</section>
 
-<section class="section">
-    <div class="container">
-        <?php if($message): ?>
-            <div class="info-card mb-4"><p><?php echo htmlspecialchars($message); ?></p></div>
-        <?php endif; ?>
+    <div class="main-content">
+        <h1 style="font-size:24px; margin-bottom:20px;">Course Categories</h1>
+        <?php display_flash_message(); ?>
 
-        <div class="form-card mb-4">
-            <h2 class="mb-3">Add New Category</h2>
-            <form method="POST">
-                <div class="form-group">
-                    <label>Category Name</label>
-                    <input type="text" name="name" required>
+        <div style="background:#fff; padding:20px; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.05); margin-bottom:30px;">
+            <form method="POST" style="overflow:hidden;">
+                <div style="width:70%; float:left; padding-right:20px;">
+                    <input type="text" name="name" placeholder="Category Name (e.g., Web Development)" required style="width:100%; padding:11px; border:1px solid #d1d7dc; border-radius:4px;">
                 </div>
-
-                <div class="form-group">
-                    <label>Slug</label>
-                    <input type="text" name="slug" required>
+                <div style="width:30%; float:left;">
+                    <button type="submit" name="add_category" style="width:100%; padding:11px; background:#a435f0; color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Add Category</button>
                 </div>
-
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="description" rows="4"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Icon</label>
-                    <input type="text" name="icon" value="📘">
-                </div>
-
-                <button type="submit" name="add_category" class="btn btn-primary">Add Category</button>
             </form>
         </div>
 
-        <div class="table-box">
-            <h2 class="mb-3">All Categories</h2>
-            <table>
+        <table>
+            <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Icon</th>
-                    <th>Name</th>
-                    <th>Slug</th>
-                    <th>Description</th>
-                    <th>Action</th>
+                    <th>Category Name</th>
+                    <th>Slug URL Reference</th>
                 </tr>
-
-                <?php if($categories && $categories->num_rows > 0): ?>
-                    <?php while($cat = $categories->fetch_assoc()): ?>
-                        <tr>
-                            <td><?php echo $cat['id']; ?></td>
-                            <td><?php echo htmlspecialchars($cat['icon']); ?></td>
-                            <td><?php echo htmlspecialchars($cat['name']); ?></td>
-                            <td><?php echo htmlspecialchars($cat['slug']); ?></td>
-                            <td><?php echo htmlspecialchars($cat['description']); ?></td>
-                            <td>
-                                <a href="categories.php?delete=<?php echo $cat['id']; ?>" onclick="return confirm('Delete this category?')">Delete</a>
-                            </td>
-                        </tr>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <tr><td colspan="6">No categories found.</td></tr>
-                <?php endif; ?>
-            </table>
-        </div>
+            </thead>
+            <tbody>
+                <?php foreach($categories as $cat): ?>
+                <tr>
+                    <td><?php echo $cat['id']; ?></td>
+                    <td><strong><?php echo htmlspecialchars($cat['name']); ?></strong></td>
+                    <td><?php echo htmlspecialchars($cat['slug']); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
     </div>
-</section>
+</div>
 
-<?php include '../includes/footer.php'; ?>
+</body>
+</html>
