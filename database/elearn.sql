@@ -48,16 +48,16 @@ CREATE TABLE `lesson_progress` (
   UNIQUE KEY `user_lesson_unique` (`user_id`, `lesson_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ENROLLMENTS
-CREATE TABLE enrollments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    course_id INT NOT NULL,
-    enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_enrollment (user_id, course_id),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
-);
+-- 7. CERTIFICATES TABLE
+CREATE TABLE `certificates` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `course_id` INT NOT NULL,
+  `certificate_code` VARCHAR(100) NOT NULL UNIQUE,
+  `issued_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  FOREIGN KEY (`course_id`) REFERENCES `courses`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- LESSON PROGRESS
 CREATE TABLE lesson_progress (
