@@ -1,121 +1,40 @@
 <?php
-require_once 'includes/db.php';
-require_once 'includes/functions.php';
-require_once 'includes/auth.php';
-
-$message = "";
-
-if (!isset($_GET['slug']) || empty($_GET['slug'])) {
-    header("Location: courses.php");
-    exit();
-}
-
-$slug = trim($_GET['slug']);
-$courseResult = getCourseBySlug($conn, $slug);
-
-if (!$courseResult || $courseResult->num_rows === 0) {
-    include 'includes/header.php';
-    echo "<section class='page-banner'><div class='container'><h1>Course Not Found</h1></div></section>";
-    include 'includes/footer.php';
-    exit();
-}
-
-$course = $courseResult->fetch_assoc();
-$lessons = getLessonsByCourse($conn, $course['id']);
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enroll_course'])) {
-    if (!isLoggedIn()) {
-        header("Location: login.php");
-        exit();
-    }
-
-    $user_id = $_SESSION['user_id'];
-
-    if (isEnrolled($conn, $user_id, $course['id'])) {
-        $message = "You are already enrolled in this course.";
-    } else {
-        if (enrollCourse($conn, $user_id, $course['id'])) {
-            $message = "Successfully enrolled in this course.";
-        } else {
-            $message = "Enrollment failed.";
-        }
-    }
-}
-
 include 'includes/header.php';
+$id = intval($_GET['id'] ?? 0);
+$res = $conn->query("SELECT c.*, cat.name as category_name, u.username as author_name FROM courses c 
+                     JOIN categories cat ON c.category_id=cat.id 
+                     JOIN users u ON c.user_id=u.id 
+                     WHERE c.id=$id");
+$course = $res->fetch_assoc();
+
+if(!$course) {
+    die("<div class='text-center py-20 text-red-500 font-bold'>Course or Video Not Found!</div>");
+}
 ?>
-
-<section class="page-banner">
-    <div class="container">
-        <h1><?php echo htmlspecialchars($course['title']); ?></h1>
-        <p><?php echo htmlspecialchars($course['short_desc']); ?></p>
-    </div>
-</section>
-
-<section class="section">
-    <div class="container">
-        <?php if(!empty($message)): ?>
-            <div class="form-card mb-4">
-                <p><?php echo htmlspecialchars($message); ?></p>
-            </div>
-        <?php endif; ?>
-
-        <div class="learn-layout">
+<div class="max-w-4xl mx-auto px-6 py-12">
+    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-2xl">
+        <video src="<?php echo $course['url']; ?>" controls class="w-full aspect-video rounded-lg mb-6 bg-black"></video>
+        
+        <div class="flex items-center justify-between mb-4">
+            <span class="px-3 py-1 bg-red-600/20 text-red-400 font-bold uppercase text-xs rounded"><?php echo $course['category_name']; ?></span>
+            <span class="text-xs text-gray-400">Uploaded by: <strong><?php echo $course['author_name']; ?></strong></span>
+        </div>
+        
+        <h1 class="text-3xl font-black text-white mb-3"><?php echo $course['title']; ?></h1>
+        <p class="text-gray-300 leading-relaxed"><?php echo $course['description']; ?></p>
+        
+        <div class="mt-8 pt-6 border-t border-gray-700 flex items-center justify-between">
             <div>
-                <div class="course-card mb-4">
-                    <img class="course-thumb" src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200&auto=format&fit=crop" alt="Course Thumbnail">
-
-                    <span class="badge"><?php echo htmlspecialchars($course['category_name'] ?? 'General'); ?></span>
-                    <h2 class="mt-3 mb-2"><?php echo htmlspecialchars($course['title']); ?></h2>
-
-                    <div class="meta">
-                        <span>👨‍🏫 <?php echo htmlspecialchars($course['instructor']); ?></span>
-                        <span>📘 <?php echo htmlspecialchars($course['level']); ?></span>
-                        <span>⏱ <?php echo htmlspecialchars($course['duration']); ?></span>
-                        <span>📚 <?php echo (int)$course['total_lessons']; ?> Lessons</span>
-                    </div>
-
-                    <div class="price">৳<?php echo number_format($course['price'], 2); ?></div>
-
-                    <p class="text-muted mb-3"><?php echo nl2br(htmlspecialchars($course['description'])); ?></p>
-
-                    <?php if(isset($_SESSION['user_id']) && isEnrolled($conn, $_SESSION['user_id'], $course['id'])): ?>
-                        <a href="learn.php?course=<?php echo $course['id']; ?>" class="btn btn-primary">Continue Learning</a>
-                    <?php else: ?>
-                        <form method="POST">
-                            <button type="submit" name="enroll_course" class="btn btn-primary">Enroll Now</button>
-                        </form>
-                    <?php endif; ?>
-                </div>
+                <span class="text-sm text-gray-400 block">Access Price</span>
+                <span class="text-2xl font-black text-green-400"><?php echo $course['is_paid'] ? CURRENCY.' '.number_format($course['price'],2) : 'FREE VIDEO'; ?></span>
             </div>
-
-            <div>
-                <div class="course-card">
-                    <h3 class="mb-3">Course Lessons</h3>
-
-                    <div class="lesson-list">
-                        <?php if($lessons && $lessons->num_rows > 0): ?>
-                            <?php while($lesson = $lessons->fetch_assoc()): ?>
-                                <div class="lesson-item">
-                                    <div class="lesson-top">
-                                        <div>
-                                            <h4><?php echo (int)$lesson['lesson_order']; ?>. <?php echo htmlspecialchars($lesson['title']); ?></h4>
-                                            <p class="text-muted"><?php echo htmlspecialchars($lesson['duration']); ?></p>
-                                        </div>
-                                        <?php if((int)$lesson['is_preview'] === 1): ?>
-                                            <span class="badge">Preview</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <p>No lessons available.</p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
+            
+            <?php if($course['is_paid']): ?>
+                <a href="dashboard.php?view=cart&add=<?php echo $course['id']; ?>" class="bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-lg font-bold text-white transition"><i class="fa fa-cart-plus mr-2"></i> Enroll Now</a>
+            <?php else: ?>
+                <span class="text-green-400 bg-green-500/10 px-4 py-2 rounded-lg border border-green-500/20 font-bold">Unrestricted Access</span>
+            <?php endif; ?>
         </div>
     </div>
-</section>
-
+</div>
 <?php include 'includes/footer.php'; ?>
