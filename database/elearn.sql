@@ -93,4 +93,19 @@ CREATE TABLE `contacts` (
   `message` TEXT NOT NULL,
   `status` ENUM('unread', 'read') DEFAULT 'unread',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
+INSERT IGNORE INTO `users` (`id`, `username`, `email`, `password`, `role`, `wallet_balance`) VALUES
+(1, 'Super Admin', 'admin@learnify.com', '$2y$10$e0myL2uQCbH1D.7YVnfeoe71C35NnZ9b9SgY4LhBq5L7I1b6n6Uii', 'admin', 5500.00), -- pass: adminpassword
+(2, 'Demo Creator', 'student@learnify.com', '$2y$10$e0myL2uQCbH1D.7YVnfeoe71C35NnZ9b9SgY4LhBq5L7I1b6n6Uii', 'student', 0.00);
+
+INSERT IGNORE INTO `categories` (`id`, `name`, `slug`) VALUES
+(1, 'Travelling', 'travel'),
+(2, 'Gaming', 'gaming'),
+(3, 'Web Development', 'course');
+
+-- Pre-populate Default Auto-Courses (Free Traveling/Gaming & Premium Courses)
+INSERT IGNORE INTO `courses` (`id`, `title`, `description`, `url`, `category_id`, `user_id`, `price`, `is_paid`, `status`, `thumbnail`) VALUES
+(1, 'Sajek Valley Scenic Vlog 4K', 'Experience the beautiful cloud kingdom of Bangladesh.', 'https://www.w3schools.com/html/mov_bbb.mp4', 1, 2, 0.00, 0, 'approved', 'travel_sajek.jpg'),
+(2, 'GTA VI Gameplay Walkthrough Part 1', 'Pro gaming strategy and graphical showoff of GTA VI.', 'https://www.w3schools.com/html/movie.mp4', 2, 2, 0.00, 0, 'approved', 'gaming_gta.jpg'),
+(3, 'Professional Full-Stack PHP & MySQL Masterclass', 'A-Z professional Laravel web application training program.', 'https://www.w3schools.com/html/mov_bbb.mp4', 3, 1, 4500.00, 1, 'approved', 'web_php.jpg'),
+(4, 'NextJS Realtime Chat App Development', 'Premium course teaching WebSocket, NextJS & Tailwind.', 'https://www.w3schools.com/html/movie.mp4', 3, 1, 2500.00, 1, 'approved', 'web_nextjs.jpg');
